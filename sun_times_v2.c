@@ -22,20 +22,29 @@
 
 
 /*
-| Town                        | Latitude                               | Longitude                               |
-| --------------------------- | -------------------------------------- | --------------------------------------- |
-| Kranj, Slovenia             | ~ 46.2389° N ([latitude.to][1])        | ~ 14.3556° E ([Geodatos][2])            |
-| Duluth, Georgia, USA        | ~ 34.0029° N ([latitude.to][3])        | ~ –84.1446° W ([latitude.to][3])        |
-| Alexandria, Virginia, USA   | ~ 38.8048° N ([Coordinates Finder][4]) | ~ –77.0469° W ([latitude.to][5])        |
-| Durham, North Carolina, USA | ~ 35.9940° N ([latitude.to][6])        | ~ –78.8986° W ([Coordinates Finder][7]) |
+  | Town                        | Latitude                               | Longitude                               |
+  | --------------------------- | -------------------------------------- | --------------------------------------- |
+  | Kranj, Slovenia             | ~ 46.2389° N ([latitude.to][1])        | ~ 14.3556° E ([Geodatos][2])            |
+  | Duluth, Georgia, USA        | ~ 34.0029° N ([latitude.to][3])        | ~ –84.1446° W ([latitude.to][3])        |
+  | Alexandria, Virginia, USA   | ~ 38.8048° N ([Coordinates Finder][4]) | ~ –77.0469° W ([latitude.to][5])        |
+  | Durham, North Carolina, USA | ~ 35.9940° N ([latitude.to][6])        | ~ –78.8986° W ([Coordinates Finder][7]) |
 
-[1]: https://latitude.to/map/si/slovenia/cities/kranj?utm_source=chatgpt.com "GPS coordinates of Kranj, Slovenia. Latitude: 46.2389 Longitude"
-[2]: https://www.geodatos.net/en/coordinates/slovenia/kranj?utm_source=chatgpt.com "Kranj Geographic coordinates - Latitude & longitude - Geodatos"
-[3]: https://latitude.to/map/us/united-states/cities/duluth-georgia?utm_source=chatgpt.com "GPS coordinates of Duluth, Georgia, United States. Latitude"
-[4]: https://www.coordinatesfinder.com/coordinates/5333-alexandria-virginia?utm_source=chatgpt.com "GPS coordinates for Alexandria Virginia | CoordinatesFinder.com"
-[5]: https://latitude.to/map/us/united-states/cities/alexandria-virginia?utm_source=chatgpt.com "GPS coordinates of Alexandria, Virginia, United States. Latitude"
-[6]: https://latitude.to/map/us/united-states/cities/durham?utm_source=chatgpt.com "GPS coordinates of Durham, United States. Latitude: 35.9940 ..."
-[7]: https://www.coordinatesfinder.com/coordinates/335771-durham-nc?utm_source=chatgpt.com "GPS coordinates for Durham NC | CoordinatesFinder.com"
+  [1]: https://latitude.to/map/si/slovenia/cities/kranj?utm_source=chatgpt.com "GPS coordinates of Kranj, Slovenia. Latitude: 46.2389 Longitude"
+  [2]: https://www.geodatos.net/en/coordinates/slovenia/kranj?utm_source=chatgpt.com "Kranj Geographic coordinates - Latitude & longitude - Geodatos"
+  [3]: https://latitude.to/map/us/united-states/cities/duluth-georgia?utm_source=chatgpt.com "GPS coordinates of Duluth, Georgia, United States. Latitude"
+  [4]: https://www.coordinatesfinder.com/coordinates/5333-alexandria-virginia?utm_source=chatgpt.com "GPS coordinates for Alexandria Virginia | CoordinatesFinder.com"
+  [5]: https://latitude.to/map/us/united-states/cities/alexandria-virginia?utm_source=chatgpt.com "GPS coordinates of Alexandria, Virginia, United States. Latitude"
+  [6]: https://latitude.to/map/us/united-states/cities/durham?utm_source=chatgpt.com "GPS coordinates of Durham, United States. Latitude: 35.9940 ..."
+  [7]: https://www.coordinatesfinder.com/coordinates/335771-durham-nc?utm_source=chatgpt.com "GPS coordinates for Durham NC | CoordinatesFinder.com"
+*/
+
+/* TODO as of October 31, 2025
+
+   1. If empty options use the IP determined locality and today's date
+   2. Add the day of the week in the output
+   3. Make the DST indicator nicer
+   4. Make the choice fo the output: only UTC, only local, both, no header or with header
+
 */
 
 #include <math.h>
@@ -311,13 +320,13 @@ int compute_sun_times(int Y,int M,int D, double lat_deg, double lon_deg,
 
 /* If you don't have a header, minimally:
    typedef struct {
-     int civil_dawn_local, sunrise_local, sunset_local, civil_dusk_local;
-     int civil_dawn_utc, sunrise_utc, sunset_utc, civil_dusk_utc;
-     int polar_day, polar_night;
+   int civil_dawn_local, sunrise_local, sunset_local, civil_dusk_local;
+   int civil_dawn_utc, sunrise_utc, sunset_utc, civil_dusk_utc;
+   int polar_day, polar_night;
    } SunTimes;
    int compute_sun_times(int year,int month,int day,
-                         double lat,double lon,double tz_offset_hours,
-                         int dst_flag, SunTimes* out, char* err, size_t errsz);
+   double lat,double lon,double tz_offset_hours,
+   int dst_flag, SunTimes* out, char* err, size_t errsz);
    void print_hhmm(int minutes_since_midnight);  // your existing helper
 */
 
@@ -365,7 +374,7 @@ static void print_hhmm(double h){
   int hh = (int)floor(h + 1e-12);
   int mm = (int)floor((h - hh)*60.0 + 0.5);
   if (mm == 60){ hh = (hh+1)%24; mm = 0; }
-  printf("%02d:%02d", hh%24, mm);
+  printf("%02d:%02d \t", hh%24, mm);
 }
 
 // Demo CLI
@@ -411,25 +420,28 @@ int main(int argc, char **argv) {
     return rc;
   }
 
+  printf("\nMico's Sun Times Calculator for the day of %04d-%02d-%02d\n", year, month, day);
+
   if (label) {
-    printf("%s %04d-%02d-%02d\n", label, year, month, day);
+    printf("Location: %s\n", label);
   } else {
-    printf("%04d-%02d-%02d (lat=%.6f, lon=%.6f, tz=%.2f, dst=%d)\n",
-           year, month, day, lat, lon, tz_off, dst);
+    printf("Location: (\xCF\x86=%.4f, \xCE\xBB=%.4f, TZ=%.2f, DST=%d)\n",
+	   lat, lon, tz_off, dst);   // φ = 0xCF 0x86, λ = 0xCE 0xBB in UTF-8  
   }
 
-  //  Uncomment if you want UTC as well:
-  printf("Civil dawn (LOC): "); print_hhmm(s.civil_dawn_local); printf("\n");
-  printf("Sunrise    (LOC): "); print_hhmm(s.sunrise_local);     printf("\n");
-  printf("Sunset     (LOC): "); print_hhmm(s.sunset_local);      printf("\n");
-  printf("Civil dusk (LOC): "); print_hhmm(s.civil_dusk_local);  printf("\n\n");
+  printf("\tDawn\tRise\tSet\tDusk\n");
+  printf("Local \t");
+  print_hhmm(s.civil_dawn_local); 
+  print_hhmm(s.sunrise_local);    
+  print_hhmm(s.sunset_local);     
+  print_hhmm(s.civil_dusk_local);  printf("\n");
 
-  printf("Civil dawn (UTC): "); print_hhmm(s.civil_dawn_utc);  printf("\n");
-  printf("Sunrise    (UTC): "); print_hhmm(s.sunrise_utc);     printf("\n");
-  printf("Sunset     (UTC): "); print_hhmm(s.sunset_utc);      printf("\n");
-  printf("Civil dusk (UTC): "); print_hhmm(s.civil_dusk_utc);  printf("\n");
-
-
+  printf("UTC\t");
+  print_hhmm(s.civil_dawn_utc); 
+  print_hhmm(s.sunrise_utc);    
+  print_hhmm(s.sunset_utc);     
+  print_hhmm(s.civil_dusk_utc);  printf("\n\n");
+  
   if (s.polar_day)   printf("Note: Polar day (no true sunrise/sunset).\n");
   if (s.polar_night) printf("Note: Polar night.\n");
 
