@@ -1,7 +1,7 @@
 /*
  * This file is part of Mico's toy RPN Calculator
  *
- * Mico's toy RPN Calculator is free software: 
+ * Sun Times calculator is free software: 
  * you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
