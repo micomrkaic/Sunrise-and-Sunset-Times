@@ -18,7 +18,6 @@
 
 // sun_times.c  (C17, no GCC extensions; with input validation)
 // Build: gcc sun_times_v2.c -o sun_times -lm
-// Optional demo main: add -DDEMO_MAIN
 
 
 /*
@@ -38,12 +37,11 @@
   [7]: https://www.coordinatesfinder.com/coordinates/335771-durham-nc?utm_source=chatgpt.com "GPS coordinates for Durham NC | CoordinatesFinder.com"
 */
 
-/* TODO as of October 31, 2025
+/* TODO as of November 1, 2025
 
    1. If empty options use the IP determined locality and today's date
    2. Add the day of the week in the output
-   3. Make the DST indicator nicer
-   4. Make the choice fo the output: only UTC, only local, both, no header or with header
+   3. Make the options for the output: only UTC, only local, both, no header or with header
 
 */
 
@@ -228,7 +226,7 @@ int compute_sun_times(int Y,int M,int D, double lat_deg, double lon_deg,
     }
   }
 
-  // Clamp refine_iters to 0..2 (recommended)
+  // Clamp refine_iters to 0..2
   if (refine_iters < 0) refine_iters = 0;
   if (refine_iters > 2) refine_iters = 2;
 
@@ -318,26 +316,14 @@ int compute_sun_times(int Y,int M,int D, double lat_deg, double lon_deg,
 #include <stdbool.h>
 #include <limits.h>
 
-/* If you don't have a header, minimally:
-   typedef struct {
-   int civil_dawn_local, sunrise_local, sunset_local, civil_dusk_local;
-   int civil_dawn_utc, sunrise_utc, sunset_utc, civil_dusk_utc;
-   int polar_day, polar_night;
-   } SunTimes;
-   int compute_sun_times(int year,int month,int day,
-   double lat,double lon,double tz_offset_hours,
-   int dst_flag, SunTimes* out, char* err, size_t errsz);
-   void print_hhmm(int minutes_since_midnight);  // your existing helper
-*/
 
 static void usage(const char *prog) {
   fprintf(stderr,
-          "Usage: %s YYYY-MM-DD LAT LON TZ_OFFSET DST [LABEL]\n"
+          "Usage: %s YYYY-MM-DD LAT LON TZ_OFFSET [LABEL]\n"
           "  LAT, LON: decimal degrees (N/E positive, S/W negative)\n"
           "  TZ_OFFSET: hours from UTC (e.g., -5, -4.0, 9)\n"
-          "  DST: 0 or 1\n"
           "Example:\n"
-          "  %s 2025-10-31 35.994 -78.898 -4 1 \"Durham NC\"\n",
+          "  %s 2025-10-31 35.994 -78.898 -4 \"Durham NC\"\n",
           prog, prog);
 }
 
@@ -367,7 +353,6 @@ static int parse_int01(const char *s, int *out) {
   return 0;
 }
 
-#ifdef DEMO_MAIN
 // Pretty-printer used only in demo build
 static void print_hhmm(double h){
   if (isnan(h)) { printf("--:--"); return; }
@@ -404,17 +389,13 @@ int main(int argc, char **argv) {
     fprintf(stderr, "Error: bad TZ offset '%s' (hours from UTC, typically -12..+14)\n", argv[4]);
     return 2;
   }
-  if (parse_int01(argv[5], &dst) != 0) {
-    fprintf(stderr, "Error: DST must be 0 or 1 (got '%s')\n", argv[5]);
-    return 2;
-  }
 
-  const char *label = (argc >= 7) ? argv[6] : NULL;
+  const char *label = (argc >= 6) ? argv[5] : NULL;
 
   SunTimes s;
   char err[160];
 
-  int rc = compute_sun_times(year, month, day, lat, lon, tz_off, dst, &s, err, sizeof err);
+  int rc = compute_sun_times(year, month, day, lat, lon, tz_off, 1, &s, err, sizeof err);
   if (rc) {
     fprintf(stderr, "Error: %s\n", err);
     return rc;
@@ -447,5 +428,3 @@ int main(int argc, char **argv) {
 
   return 0;
 }
-
-#endif
