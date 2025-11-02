@@ -1,0 +1,110 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# --- Compile the C program if needed ---
+if [[ ! -x ./sun_times ]]; then
+  echo "Compiling sun_times_v2.c -> ./sun_times ..."
+  cc -O2 -Wall sun_times_v2.c -lm -o sun_times
+fi
+
+# --- GNU vs BSD date detection ---
+is_gnu_date() { date -d @0 >/dev/null 2>&1; }
+
+# --- Today in ISO and DD.MM.YYYY formats ---
+TODAY_ISO="$(date +%Y-%m-%d)"
+if is_gnu_date; then
+  TODAY_DMY="$(date -d "$TODAY_ISO" +%d.%m.%Y)"
+else
+  TODAY_DMY="$(date -j -f "%Y-%m-%d" "$TODAY_ISO" +%d.%m.%Y)"
+fi
+
+# --- Get +HHMM / -HHMM for a given TZ on today (use local noon to avoid DST edge cases) ---
+raw_offset_for_tz_on_date() {
+  local tz="$1" date_str="$2"
+  if is_gnu_date; then
+    TZ="$tz" date -d "$date_str 12:00:00" +%z
+  else
+    TZ="$tz" date -j -f "%Y-%m-%d %H:%M:%S" "$date_str 12:00:00" +%z
+  fi
+}
+
+# --- Convert +HHMM/-HHMM to decimal hours (e.g., +2, -4, +5.5) ---
+to_decimal_hours() {
+  local z="$1"
+  awk -v z="$z" 'BEGIN{
+    s = substr(z,1,1); h = substr(z,2,2)+0; m = substr(z,4,2)+0;
+    val = h + (m/60.0); if (s=="-") val = -val;
+    printf("%g", val);
+  }'
+}
+
+# --- Strip the banner (and any immediately following blank line) from the C output ---
+strip_banner() {
+  awk '{
+    if (index($0,"Mico'\''s Sun Times Calculator")>0) { skip_blank=1; next }
+    if (skip_blank && $0 ~ /^[[:space:]]*$/) { skip_blank=0; next }
+    skip_blank=0; print
+  }'
+}
+
+# --- Extract Local/UTC times ("06:14 06:46 16:46 17:17") from ./sun_times output ---
+#     Returns two lines to stdout:
+#       LOCAL_TIMES
+#       UTC_TIMES
+extract_times() {
+  awk '
+    /^Local([[:space:]]|$)/ { print $2, $3, $4, $5 }
+    /^UTC([[:space:]]|$)/   { print $2, $3, $4, $5 }
+  '
+}
+
+# --- Print the unified header once ---
+print_header() {
+  printf "\nMico's Sun Times Calculator for %s\n" "$TODAY_DMY"
+  printf "\t\t\tTime\tDawn\tRise\tSet\tDusk\n"
+}
+
+# --- Run one city: lat lon tz "Label" ---
+HEADER_PRINTED=0
+CALL_IDX=0
+run_city() {
+  local lat="$1" lon="$2" tz="$3" label="$4"
+
+  local raw dec out lines local_times utc_times
+  raw="$(raw_offset_for_tz_on_date "$tz" "$TODAY_ISO")"
+  dec="$(to_decimal_hours "$raw")"
+
+  # call the underlying program and strip banner
+  out="$(./sun_times "$TODAY_ISO" "$lat" "$lon" "$dec" "$label" | strip_banner)"
+
+  # extract time rows
+  lines="$(printf "%s\n" "$out" | extract_times)"
+  local_times="$(printf "%s\n" "$lines" | sed -n '1p')"
+  utc_times="$(printf "%s\n" "$lines" | sed -n '2p')"
+
+  # header once
+  if [[ $HEADER_PRINTED -eq 0 ]]; then
+    print_header
+    HEADER_PRINTED=1
+  fi
+
+  # single blank line between city blocks (not before the first)
+  if [[ $CALL_IDX -gt 0 ]]; then printf "\n"; fi
+
+  # City row (Local)
+  # %-16s gives a compact name column; adjust as you like
+  printf "%-16s\tLocal\t%s\t%s\t%s\t%s\n" "$label" \
+    $(printf "%s" "$local_times" | awk '{print $1, $2, $3, $4}')
+
+  # UTC row (blank city col for alignment)
+  printf "%-16s\tUTC  \t%s\t%s\t%s\t%s\n" "" \
+    $(printf "%s" "$utc_times" | awk '{print $1, $2, $3, $4}')
+
+  ((CALL_IDX+=1))
+}
+
+# --- Your cities (en-dashes fixed; US entries use America/New_York) ---
+run_city 46.2389  14.3556  "Europe/Ljubljana"  "Kranj, Slovenia"
+run_city 38.8048 -77.0469  "America/New_York"  "Alexandria, VA"
+run_city 35.994  -78.898   "America/New_York"  "Durham, NC"
+run_city 34.0029 -84.1446  "America/New_York"  "Duluth, GA"

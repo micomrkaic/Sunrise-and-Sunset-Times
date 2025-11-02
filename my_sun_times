@@ -1,0 +1,177 @@
+# This file is part of Mico's Sun Times Calculator
+# Sun Times Calculator Is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# Sun Times Calculator is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Mico's Sun Times Calculator. If not, see <https://www.gnu.org/licenses/>.
+
+#!/usr/bin/env bash
+set -euo pipefail
+
+# --- Today's local date (YYYY-MM-DD) ---
+TODAY="$(date +%Y-%m-%d)"
+
+# --- Build: compile the C program if needed ---
+if [[ ! -x ./sun_times ]]; then
+  echo "Compiling sun_times_v2.c -> ./sun_times ..."
+  cc -O2 -Wall sun_times_v2.c -lm -o sun_times
+fi
+
+# --- Detect GNU vs BSD date for TZ-aware formatting ---
+is_gnu_date() { date -d @0 >/dev/null 2>&1; }
+
+# --- Get +HHMM / -HHMM for a TZ on a given date (use noon to avoid DST edges) ---
+raw_offset_for_tz_on_date() {
+  local tz="$1" date_str="$2"
+  if is_gnu_date; then
+    TZ="$tz" date -d "$date_str 12:00:00" +%z
+  else
+    TZ="$tz" date -j -f "%Y-%m-%d %H:%M:%S" "$date_str 12:00:00" +%z
+  fi
+}
+
+# --- Convert +HHMM/-HHMM to decimal hours (e.g., +2, -4, +5.5) ---
+to_decimal_hours() {
+  local z="$1"
+  awk -v z="$z" 'BEGIN{
+    s = substr(z,1,1); h = substr(z,2,2)+0; m = substr(z,4,2)+0;
+    val = h + (m/60.0); if (s=="-") val = -val;
+    printf("%g", val);
+  }'
+}
+
+# --- Remove banner (and a blank right after it) on subsequent runs ---
+filter_banner() {
+  awk '{
+    if (index($0,"Mico'\''s Sun Times Calculator")>0) { skip_blank=1; next }
+    if (skip_blank && $0 ~ /^[[:space:]]*$/) { skip_blank=0; next }
+    skip_blank=0; print
+  }'
+}
+
+# --- Normalize blanks: collapse internal multiples; remove leading/trailing entirely ---
+normalize_blanks() {
+  awk '
+    BEGIN{lead_done=0; blank=0}
+    {
+      if ($0 ~ /^[[:space:]]*$/) {
+        # Blank line
+        if (!lead_done) next               # drop leading blanks
+        blank=1; next                      # delay printing blank
+      } else {
+        if (blank) { print ""; blank=0 }   # print exactly one pending blank
+        print; lead_done=1; last_nonblank=NR
+      }
+    }
+    END{
+      # If ended on a blank, we printed none (so no trailing blank)
+    }'
+}
+
+# --- Run one location: lat lon tz "Label" ---
+BANNER_SHOWN=0
+PRINTED=0
+run() {
+  local lat="$1" lon="$2" tz="$3" label="$4"
+  local raw dec out
+  raw="$(raw_offset_for_tz_on_date "$tz" "$TODAY")"
+  dec="$(to_decimal_hours "$raw")"
+
+  if [[ $BANNER_SHOWN -eq 0 ]]; then
+    out="$(./sun_times "$TODAY" "$lat" "$lon" "$dec" "$label" | normalize_blanks)"
+    BANNER_SHOWN=1
+  else
+    out="$(./sun_times "$TODAY" "$lat" "$lon" "$dec" "$label" | filter_banner | normalize_blanks)"
+  fi
+
+  # Print a single blank line between sections (not before the first)
+  if [[ $PRINTED -ne 0 ]]; then printf "\n"; fi
+  printf "%s\n" "$out"
+  PRINTED=1
+}
+
+# --- Calls (fixed en-dashes and corrected US time zones) ---
+run 46.2389  14.3556  "Europe/Ljubljana"  "Kranj, Slovenia"
+run 38.8048 -77.0469  "America/New_York"  "Alexandria, VA"
+run 35.994  -78.898   "America/New_York"  "Durham, NC"
+run 34.0029 -84.1446  "America/New_York"  "Duluth, GA"
+
+
+
+# #!/usr/bin/env bash
+# set -euo pipefail
+
+# # --- Today's local date (YYYY-MM-DD) ---
+# TODAY="$(date +%Y-%m-%d)"
+
+# # --- Build: compile the C program if needed ---
+# if [[ ! -x ./sun_times ]]; then
+#   echo "Compiling sun_times_v2.c -> ./sun_times ..."
+#   cc -O2 -Wall sun_times_v2.c -lm -o sun_times
+# fi
+
+# # --- Detect GNU vs BSD date for TZ-aware formatting ---
+# is_gnu_date() {
+#   date -d @0 >/dev/null 2>&1
+# }
+
+# # --- Get +HHMM / -HHMM for a TZ on a given date (use noon to avoid DST edges) ---
+# raw_offset_for_tz_on_date() {
+#   local tz="$1" date_str="$2"
+#   if is_gnu_date; then
+#     TZ="$tz" date -d "$date_str 12:00:00" +%z
+#   else
+#     TZ="$tz" date -j -f "%Y-%m-%d %H:%M:%S" "$date_str 12:00:00" +%z
+#   fi
+# }
+
+# # --- Convert +HHMM/-HHMM to decimal hours (e.g., +2, -4, +5.5) ---
+# to_decimal_hours() {
+#   local z="$1"
+#   awk -v z="$z" 'BEGIN{
+#     s = substr(z,1,1); h = substr(z,2,2)+0; m = substr(z,4,2)+0;
+#     val = h + (m/60.0); if (s=="-") val = -val;
+#     printf("%g", val);
+#   }'
+# }
+
+# # --- Banner filtering for subsequent runs ---
+# # Removes any line containing "Mico's Sun Times Calculator"
+# # and an immediate blank line following it if present.
+# filter_banner() {
+#   awk '{
+#     if (index($0,"Mico'\''s Sun Times Calculator")>0) { skip_blank=1; next }
+#     if (skip_blank && $0 ~ /^[[:space:]]*$/) { skip_blank=0; next }
+#     skip_blank=0; print
+#   }'
+# }
+
+# # --- Run one location: lat lon tz "Label" ---
+# BANNER_SHOWN=0
+# run() {
+#   local lat="$1" lon="$2" tz="$3" label="$4"
+#   local raw dec
+#   raw="$(raw_offset_for_tz_on_date "$tz" "$TODAY")"
+#   dec="$(to_decimal_hours "$raw")"
+
+#   if [[ $BANNER_SHOWN -eq 0 ]]; then
+#     ./sun_times "$TODAY" "$lat" "$lon" "$dec" "$label"
+#     BANNER_SHOWN=1
+#   else
+#     ./sun_times "$TODAY" "$lat" "$lon" "$dec" "$label" | filter_banner
+#   fi
+# }
+
+# # --- Calls (fixed en-dashes and corrected US time zones) ---
+# run 46.2389  14.3556  "Europe/Ljubljana"  "Kranj, Slovenia"
+# run 38.8048 -77.0469  "America/New_York"  "Alexandria, VA"
+# run 35.994  -78.898   "America/New_York"  "Durham, NC"
+# run 34.0029 -84.1446  "America/New_York"  "Duluth, GA"
+

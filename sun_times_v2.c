@@ -1,24 +1,19 @@
 /*
- * This file is part of Mico's toy RPN Calculator
+ * This file is part of Mico's Sun Times Calculator
  *
- * Sun Times calculator is free software: 
- * you can redistribute it and/or modify
+ * Sun Times Calculator Is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * Mico's toy RPN Calculator is distributed in the hope that it will be useful,
+ * Sun Times Calculator is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with Mico's toy RPN Calculator. If not, see <https://www.gnu.org/licenses/>.
+ * along with Mico's Sun Times Calculator. If not, see <https://www.gnu.org/licenses/>.
  */
-
-// sun_times.c  (C17, no GCC extensions; with input validation)
-// Build: gcc sun_times_v2.c -o sun_times -lm
-
 
 /*
   | Town                        | Latitude                               | Longitude                               |
@@ -37,7 +32,7 @@
   [7]: https://www.coordinatesfinder.com/coordinates/335771-durham-nc?utm_source=chatgpt.com "GPS coordinates for Durham NC | CoordinatesFinder.com"
 */
 
-/* TODO as of November 1, 2025
+/* TODO as of November 2, 2025
 
    1. If empty options use the IP determined locality and today's date
    2. Add the day of the week in the output
@@ -364,7 +359,7 @@ static void print_hhmm(double h){
 
 // Demo CLI
 int main(int argc, char **argv) {
-  if (argc < 6 || (argc >= 2 && (!strcmp(argv[1], "-h") || !strcmp(argv[1], "--help")))) {
+  if (argc < 5 || (argc >= 2 && (!strcmp(argv[1], "-h") || !strcmp(argv[1], "--help")))) {
     usage(argv[0]);
     return 2;
   }
@@ -401,13 +396,14 @@ int main(int argc, char **argv) {
     return rc;
   }
 
-  printf("\nMico's Sun Times Calculator for the day of %04d-%02d-%02d\n", year, month, day);
+  printf("\n**** Mico's Sun Times Calculator ****\n");
+  printf("%02d.%02d.%04d, ", day, month, year);
 
   if (label) {
-    printf("Location: %s\n", label);
+    printf("%s\n", label);
   } else {
-    printf("Location: (\xCF\x86=%.4f, \xCE\xBB=%.4f, TZ=%.2f, DST=%d)\n",
-	   lat, lon, tz_off, dst);   // φ = 0xCF 0x86, λ = 0xCE 0xBB in UTF-8  
+    printf("\xCF\x86=%.4f, \xCE\xBB=%.4f, TZ=%.2f\n",
+	   lat, lon, tz_off);   // φ = 0xCF 0x86, λ = 0xCE 0xBB in UTF-8  
   }
 
   printf("\tDawn\tRise\tSet\tDusk\n");
